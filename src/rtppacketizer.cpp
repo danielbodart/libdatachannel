@@ -14,6 +14,17 @@
 #include <cmath>
 #include <cstring>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <arpa/inet.h>
+#endif
+
+#ifndef htonll
+#define htonll(x)                                                                                  \
+	((uint64_t)(((uint64_t)htonl((uint32_t)(x))) << 32) | (uint64_t)htonl((uint32_t)((x) >> 32)))
+#endif
+
 namespace rtc {
 
 RtpPacketizer::RtpPacketizer(shared_ptr<RtpPacketizationConfig> rtpConfig) : rtpConfig(rtpConfig) {}
@@ -60,7 +71,8 @@ message_ptr RtpPacketizer::packetize(const binary &payload, bool mark) {
 	    (rtpConfig->mid.has_value() && rtpConfig->midId > 14) ||
 	    (rtpConfig->rid.has_value() && rtpConfig->ridId > 14) ||
 	    (videoLayersAllocationBuf.size() > 14 || rtpConfig->videoLayersAllocationId > 14) ||
-	    rtpConfig->playoutDelayId > 14) {
+	    rtpConfig->playoutDelayId > 14 ||
+	    rtpConfig->absCaptureTimeId > 14) {
 		twoByteHeader = true;
 	}
 	size_t headerSize = twoByteHeader ? 2 : 1;
@@ -70,12 +82,16 @@ message_ptr RtpPacketizer::packetize(const binary &payload, bool mark) {
 
 	const bool setPlayoutDelay = rtpConfig->playoutDelayId > 0;
 	const bool setColorSpace = rtpConfig->colorSpaceId > 0;
+	const bool setAbsCaptureTime = rtpConfig->absCaptureTimeId > 0;
 
 	if (setPlayoutDelay)
 		rtpExtHeaderSize += headerSize + 3;
 
 	if (setColorSpace)
 		rtpExtHeaderSize += headerSize + 4;
+
+	if (setAbsCaptureTime)
+		rtpExtHeaderSize += headerSize + 8; // 64-bit NTP timestamp
 	
 	if (rtpConfig->mid.has_value())
 		rtpExtHeaderSize += headerSize + rtpConfig->mid->length();
@@ -173,6 +189,13 @@ message_ptr RtpPacketizer::packetize(const binary &payload, bool mark) {
 
 			offset += extHeader->writeHeader(
 			    twoByteHeader, offset, rtpConfig->colorSpaceId, data, 4);
+		}
+
+		if (setAbsCaptureTime) {
+			uint64_t ntp = htonll(rtpConfig->absCaptureTimeNtp);
+			offset += extHeader->writeHeader(
+			    twoByteHeader, offset, rtpConfig->absCaptureTimeId,
+			    reinterpret_cast<const byte *>(&ntp), 8);
 		}
 	}
 

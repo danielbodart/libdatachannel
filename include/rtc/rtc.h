@@ -360,6 +360,8 @@ typedef struct {
 	uint8_t colorPrimaries;
 	uint8_t colorTransfer;
 	uint8_t colorMatrix;
+
+	uint8_t absCaptureTimeId;  // abs-capture-time extmap ID (0 = disabled)
 } rtcPacketizerInit;
 
 // Deprecated, do not use
@@ -443,6 +445,9 @@ RTC_C_EXPORT int rtcGetCurrentTrackTimestamp(int id, uint32_t *timestamp);
 
 // Set RTP timestamp for track identified by given id
 RTC_C_EXPORT int rtcSetTrackRtpTimestamp(int id, uint32_t timestamp);
+
+// Set abs-capture-time NTP timestamp for track (UQ32.32 fixed-point, 0 = disabled)
+RTC_C_EXPORT int rtcSetTrackAbsCaptureTime(int id, uint64_t ntpTimestamp);
 
 // Get timestamp of last RTCP SR, result is written to timestamp
 RTC_C_EXPORT int rtcGetLastTrackSenderReportTimestamp(int id, uint32_t *timestamp);
