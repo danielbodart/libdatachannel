@@ -1300,12 +1300,22 @@ int rtcSetAV1Packetizer(int tr, const rtcPacketizerInit *init) {
 		auto packetizer =
 		    std::make_shared<AV1RtpPacketizer>(packetization, rtpConfig, maxFragmentSize);
 		track->setMediaHandler(packetizer);
-		// Add abs-capture-time extmap to SDP if configured
-		if (init->absCaptureTimeId > 0) {
+		// Add RTP header extensions to SDP if configured
+		{
 			auto desc = track->description();
-			desc.addExtMap({init->absCaptureTimeId,
-			    "http://www.webrtc.org/experiments/rtp-hdrext/abs-capture-time"});
-			track->setDescription(std::move(desc));
+			bool modified = false;
+			if (init->absCaptureTimeId > 0) {
+				desc.addExtMap({init->absCaptureTimeId,
+				    "http://www.webrtc.org/experiments/rtp-hdrext/abs-capture-time"});
+				modified = true;
+			}
+			if (init->playoutDelayId > 0) {
+				desc.addExtMap({init->playoutDelayId,
+				    "http://www.webrtc.org/experiments/rtp-hdrext/playout-delay"});
+				modified = true;
+			}
+			if (modified)
+				track->setDescription(std::move(desc));
 		}
 		return RTC_ERR_SUCCESS;
 	});
